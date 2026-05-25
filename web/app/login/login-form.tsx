@@ -16,7 +16,7 @@ export function LoginForm({ error }: { error?: string }) {
     <Button
       variant="outline"
       className="w-full gap-3 py-5 text-sm font-medium"
-      onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+      onClick={() => signIn("google", { callbackUrl: "/profile" })}
     >
       <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
         <path
