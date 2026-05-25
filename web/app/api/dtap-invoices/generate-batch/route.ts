@@ -67,12 +67,26 @@ export async function POST(request: NextRequest) {
 
   // Stream SSE response
   const encoder = new TextEncoder();
+  let closed = false;
+
   const stream = new ReadableStream({
+    cancel() {
+      // Client disconnected (navigation, AbortController, etc.)
+      closed = true;
+    },
     async start(controller) {
+      /** Safe emit — silently drops events after client disconnect */
+      function emit(data: Record<string, unknown>) {
+        if (closed) return;
+        try { controller.enqueue(encoder.encode(sseEvent(data))); }
+        catch { closed = true; }
+      }
+
       // ── Heartbeat: keep connection alive through proxies ──
       const heartbeat = setInterval(() => {
+        if (closed) { clearInterval(heartbeat); return; }
         try { controller.enqueue(encoder.encode(`: ping\n\n`)); }
-        catch { clearInterval(heartbeat); }
+        catch { closed = true; clearInterval(heartbeat); }
       }, 5000);
 
       try {
@@ -152,10 +166,7 @@ export async function POST(request: NextRequest) {
         const tasks = invoiceIds.map(invoiceId =>
           limit(async () => {
             // ── Emit "started" event immediately so the client sees spinners ──
-            controller.enqueue(encoder.encode(sseEvent({
-              invoiceId,
-              status: "started",
-            })));
+            emit({ invoiceId, status: "started" });
 
             const invoiceStart = Date.now();
             const writeCounter = createWriteCounter();
@@ -163,11 +174,7 @@ export async function POST(request: NextRequest) {
             try {
               const invoice = invoiceMap.get(invoiceId);
               if (!invoice) {
-                controller.enqueue(encoder.encode(sseEvent({
-                  invoiceId,
-                  status: "error",
-                  error: "Invoice not found",
-                })));
+                emit({ invoiceId, status: "error", error: "Invoice not found" });
                 failed++;
                 console.log(`[batch] inv ${invoiceId} not found`);
                 return;
@@ -248,22 +255,13 @@ export async function POST(request: NextRequest) {
               const elapsed = ((Date.now() - invoiceStart) / 1000).toFixed(1);
               console.log(`[batch] inv ${invoiceNum} done in ${elapsed}s (${writeCounter.writes} writes)`);
 
-              controller.enqueue(encoder.encode(sseEvent({
-                invoiceId,
-                status: "ok",
-                adminInvoice: adminUrl,
-                teamInvoice: teamUrl,
-              })));
+              emit({ invoiceId, status: "ok", adminInvoice: adminUrl, teamInvoice: teamUrl });
               succeeded++;
             } catch (error) {
               const message = error instanceof Error ? error.message : "Unknown error";
               const elapsed = ((Date.now() - invoiceStart) / 1000).toFixed(1);
               console.error(`[batch] inv ${invoiceId} FAILED in ${elapsed}s (${writeCounter.writes} writes):`, error);
-              controller.enqueue(encoder.encode(sseEvent({
-                invoiceId,
-                status: "error",
-                error: message,
-              })));
+              emit({ invoiceId, status: "error", error: message });
               failed++;
             }
           })
@@ -275,25 +273,14 @@ export async function POST(request: NextRequest) {
         console.log(`[batch] complete: ${succeeded} ok, ${failed} failed, ${totalElapsed}s total`);
 
         // Final summary event
-        controller.enqueue(encoder.encode(sseEvent({
-          done: true,
-          total: invoiceIds.length,
-          succeeded,
-          failed,
-        })));
+        emit({ done: true, total: invoiceIds.length, succeeded, failed });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         console.error("Batch generation fatal error:", error);
-        controller.enqueue(encoder.encode(sseEvent({
-          done: true,
-          total: invoiceIds.length,
-          succeeded: 0,
-          failed: invoiceIds.length,
-          error: message,
-        })));
+        emit({ done: true, total: invoiceIds.length, succeeded: 0, failed: invoiceIds.length, error: message });
       } finally {
         clearInterval(heartbeat);
-        controller.close();
+        if (!closed) { try { controller.close(); } catch { /* already closed */ } }
       }
     },
   });
