@@ -53,6 +53,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { PageHeader } from "@/components/page-header";
+import { FiberLoadingAnimation } from "@/components/fiber-loading";
 import { cn } from "@/lib/utils";
 
 interface Team {
@@ -309,8 +310,8 @@ export function UsersContent() {
 
       <div className="flex-1 overflow-auto px-4 py-2">
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-muted-foreground">
-            Loading...
+          <div className="flex flex-1 items-center justify-center">
+            <FiberLoadingAnimation />
           </div>
         ) : filteredUsers.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-20 text-muted-foreground">

@@ -28,6 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/page-header";
+import { FiberLoadingAnimation } from "@/components/fiber-loading";
 
 interface WireCenter {
   _id: string;
@@ -169,8 +170,8 @@ export function WireCentersContent() {
 
       <div className="flex-1 overflow-auto px-4 py-2">
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-muted-foreground">
-            Loading...
+          <div className="flex flex-1 items-center justify-center">
+            <FiberLoadingAnimation />
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-20 text-muted-foreground">

@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DataTable, ColumnDef } from "@/components/data-table";
+import { FiberLoadingAnimation } from "@/components/fiber-loading";
 
 /* ── Types ── */
 interface DtapInfo {
@@ -218,8 +219,8 @@ export function DtapDetailContent() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        Loading...
+      <div className="flex flex-1 items-center justify-center h-full">
+        <FiberLoadingAnimation />
       </div>
     );
   }

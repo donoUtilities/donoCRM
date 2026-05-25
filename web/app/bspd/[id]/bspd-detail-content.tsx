@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DataTable, ColumnDef } from "@/components/data-table";
+import { FiberLoadingAnimation } from "@/components/fiber-loading";
 
 /* ── Types ── */
 interface BspdInfo {
@@ -120,7 +121,7 @@ export function BspdDetailContent() {
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <FiberLoadingAnimation />
       </div>
     );
   }

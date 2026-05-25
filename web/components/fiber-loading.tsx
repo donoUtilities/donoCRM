@@ -6,7 +6,7 @@
  */
 export function FiberLoadingAnimation() {
   return (
-    <div className="flex flex-col items-center justify-center gap-6 py-20">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6">
       {/* Fiber cable container */}
       <div className="fiber-cable-container">
         {/* Glow backdrop */}
