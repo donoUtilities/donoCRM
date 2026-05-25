@@ -6,7 +6,6 @@ import {
   IconBolt,
   IconCurrencyDollar,
   IconDatabase,
-  IconDashboard,
   IconFileSpreadsheet,
   IconLogin,
   IconLogout,
@@ -43,11 +42,6 @@ import {
 
 const data = {
   navMain: [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: IconDashboard,
-    },
     {
       title: "Users",
       url: "/users",
