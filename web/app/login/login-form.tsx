@@ -1,9 +1,17 @@
 "use client";
 
+import { useEffect } from "react";
 import { signIn } from "next-auth/react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-export function LoginForm() {
+export function LoginForm({ error }: { error?: string }) {
+  useEffect(() => {
+    if (error) {
+      toast.error("Your account is not authorised to access this application. Please contact your administrator.");
+    }
+  }, [error]);
+
   return (
     <Button
       variant="outline"

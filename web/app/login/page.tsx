@@ -23,14 +23,7 @@ export default async function LoginPage({
             Sign in to continue to Dono Utilities
           </p>
         </div>
-        {error && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-center">
-            <p className="text-sm font-medium text-destructive">
-              You are not authorised to access this application.
-            </p>
-          </div>
-        )}
-        <LoginForm />
+        <LoginForm error={error} />
       </div>
     </div>
   );
