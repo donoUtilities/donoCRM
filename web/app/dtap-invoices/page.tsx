@@ -9,7 +9,7 @@ export default function DtapInvoicesPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <div className="flex flex-1 flex-col min-h-0 h-full">
-          <Suspense>
+          <Suspense fallback={null}>
             <DtapInvoicesContent />
           </Suspense>
         </div>

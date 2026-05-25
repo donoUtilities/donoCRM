@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { withAuth } from "@/lib/with-auth";
 
 const DB_NAME = "DonoUtilities";
 const PAGE_SIZE = 100;
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request) => {
   try {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
@@ -244,4 +245,4 @@ export async function GET(request: NextRequest) {
     console.error("Failed to fetch DTAP Records:", error);
     return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
   }
-}
+});

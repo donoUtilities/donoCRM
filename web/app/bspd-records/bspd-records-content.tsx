@@ -20,6 +20,7 @@ import { FilterSelect } from "@/components/ui/filter-select";
 import { PageHeader } from "@/components/page-header";
 import { DataTable, ColumnDef } from "@/components/data-table";
 import { useInfiniteData } from "@/hooks/use-infinite-data";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 interface BspdRecord {
   _id: string;
@@ -72,14 +73,16 @@ export function BspdRecordsContent() {
 
   const fo = filterOptions;
 
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
   const filteredRecords = React.useMemo(() => {
     return records.filter((r) => {
       if (filters.feeder !== "all" && r.feeder !== filters.feeder) return false;
       if (filters.item !== "all" && r.item !== filters.item) return false;
       if (filters.uom !== "all" && r.uom !== filters.uom) return false;
       if (filters.completedBy !== "all" && r.completedBy !== filters.completedBy) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase();
         return (
           r.feeder.toLowerCase().includes(q) ||
           r.item.toLowerCase().includes(q) ||
@@ -89,7 +92,7 @@ export function BspdRecordsContent() {
       }
       return true;
     });
-  }, [records, searchQuery, filters]);
+  }, [records, debouncedSearch, filters]);
 
   const imageKeys: (keyof BspdRecord)[] = [
     "tickMarkStartPicture",

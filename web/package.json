@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "PORT=$(node -e \"const h=require('crypto').createHash('md5').update(require('path').basename(__dirname)).digest('hex');console.log(3000+parseInt(h.slice(0,4),16)%7000)\") next dev --turbopack",
+    "dev": "PORT=$(node -e \"const h=require('crypto').createHash('md5').update(require('path').basename(__dirname)).digest('hex');console.log(3000+parseInt(h.slice(0,4),16)%7000)\") next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

@@ -28,6 +28,7 @@ import { FilterSelect } from "@/components/ui/filter-select";
 import { PageHeader } from "@/components/page-header";
 import { DataTable, ColumnDef } from "@/components/data-table";
 import { useInfiniteData } from "@/hooks/use-infinite-data";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 interface DtapPrice {
   _id: string;
@@ -86,12 +87,14 @@ export function DtapPricesContent() {
 
   const fo = filterOptions;
 
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
   const filteredRecords = React.useMemo(() => {
     return records.filter((r) => {
       if (filters.type !== "all" && r.type !== filters.type) return false;
       if (filters.category !== "all" && r.category !== filters.category) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase();
         return (
           r.itemNumber.toLowerCase().includes(q) ||
           r.itemDescription.toLowerCase().includes(q) ||
@@ -102,7 +105,7 @@ export function DtapPricesContent() {
       }
       return true;
     });
-  }, [records, searchQuery, filters]);
+  }, [records, debouncedSearch, filters]);
 
   /* ── CRUD handlers ── */
   function openCreate() {

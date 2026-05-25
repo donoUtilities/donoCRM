@@ -7,6 +7,7 @@ import {
   IconArrowsSort,
 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FiberLoadingAnimation } from "@/components/fiber-loading";
 import {
   Table,
@@ -49,6 +50,12 @@ export interface DataTableProps<T extends { _id: string }> {
   renderCell?: (row: T, col: ColumnDef<T>) => React.ReactNode | undefined;
   /** Optional footer/totals row — map of column key to rendered content */
   footerRow?: Record<string, React.ReactNode>;
+  /** Enable checkbox row selection */
+  selectable?: boolean;
+  /** Set of selected row _id values (controlled) */
+  selectedIds?: Set<string>;
+  /** Callback when selection changes */
+  onSelectionChange?: (ids: Set<string>) => void;
 }
 
 /* ---------- Helpers ---------- */
@@ -152,6 +159,9 @@ export function DataTable<T extends { _id: string }>({
   onRowClick,
   renderCell,
   footerRow,
+  selectable,
+  selectedIds,
+  onSelectionChange,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = React.useState<string | null>(null);
   const [sortDir, setSortDir] = React.useState<SortDir>(null);
@@ -202,6 +212,36 @@ export function DataTable<T extends { _id: string }>({
     return () => observer.disconnect();
   }, [loading, loadingMore, hasMore, onLoadMore]);
 
+  // Selection helpers
+  const isSelectable = selectable && selectedIds && onSelectionChange;
+
+  const allVisibleSelected = isSelectable && sortedData.length > 0 && sortedData.every(r => selectedIds!.has(r._id));
+  const someVisibleSelected = isSelectable && sortedData.some(r => selectedIds!.has(r._id));
+
+  function handleSelectAll() {
+    if (!isSelectable) return;
+    const next = new Set(selectedIds!);
+    if (allVisibleSelected) {
+      // Deselect all visible
+      for (const r of sortedData) next.delete(r._id);
+    } else {
+      // Select all visible
+      for (const r of sortedData) next.add(r._id);
+    }
+    onSelectionChange!(next);
+  }
+
+  function handleSelectRow(id: string) {
+    if (!isSelectable) return;
+    const next = new Set(selectedIds!);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    onSelectionChange!(next);
+  }
+
   if (loading) {
     return (
       <div className="flex-1 min-h-0 flex flex-col px-4 py-2">
@@ -227,6 +267,15 @@ export function DataTable<T extends { _id: string }>({
         <Table className="w-full">
           <TableHeader>
             <TableRow>
+              {isSelectable && (
+                <TableHead className="w-[40px] text-center">
+                  <Checkbox
+                    checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                    onCheckedChange={handleSelectAll}
+                    aria-label="Select all"
+                  />
+                </TableHead>
+              )}
               {columns.map((col) => (
                 <TableHead
                   key={col.label}
@@ -247,6 +296,16 @@ export function DataTable<T extends { _id: string }>({
                 className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
                 onClick={() => onRowClick?.(row)}
               >
+                {isSelectable && (
+                  <TableCell className="text-center w-[40px]">
+                    <Checkbox
+                      checked={selectedIds!.has(row._id)}
+                      onCheckedChange={() => handleSelectRow(row._id)}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Select row ${row._id}`}
+                    />
+                  </TableCell>
+                )}
                 {columns.map((col) => {
                   const custom = renderCell?.(row, col);
                   return (
@@ -268,6 +327,7 @@ export function DataTable<T extends { _id: string }>({
             ))}
             {footerRow && sortedData.length > 0 && (
               <TableRow className="bg-muted/50 font-semibold sticky bottom-0 border-t-2">
+                {isSelectable && <TableCell />}
                 {columns.map((col) => (
                   <TableCell key={col.label} className="text-xs">
                     {footerRow[col.key] ?? ""}

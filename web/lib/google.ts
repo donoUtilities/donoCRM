@@ -13,16 +13,62 @@ function headers(accessToken: string, contentType?: string): Record<string, stri
   return h;
 }
 
+/* ---------- Write counter (for diagnostics) ---------- */
+
+/** Per-call write counter. Callers can pass this to track Docs writes. */
+export interface WriteCounter {
+  writes: number;
+}
+
+export function createWriteCounter(): WriteCounter {
+  return { writes: 0 };
+}
+
+/* ---------- Docs API response types ---------- */
+
+interface DocsDocument {
+  body: { content: DocsStructuralElement[] };
+}
+
+interface DocsStructuralElement {
+  startIndex: number;
+  endIndex?: number;
+  paragraph?: { elements: DocsParagraphElement[] };
+  table?: DocsTable;
+}
+
+interface DocsParagraphElement {
+  startIndex: number;
+  endIndex: number;
+  textRun?: { content: string };
+}
+
+interface DocsTable {
+  tableRows: DocsTableRow[];
+}
+
+interface DocsTableRow {
+  tableCells: DocsTableCell[];
+}
+
+interface DocsTableCell {
+  content: DocsCellContent[];
+}
+
+interface DocsCellContent {
+  startIndex: number;
+  endIndex: number;
+}
+
 /* ---------- Internal helpers ---------- */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function readDocument(accessToken: string, docId: string): Promise<any> {
+async function readDocument(accessToken: string, docId: string): Promise<DocsDocument> {
   const res = await fetch(`${DOCS_API}/${docId}`, { headers: headers(accessToken) });
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Failed to read document: ${res.status} ${err}`);
   }
-  return res.json();
+  return res.json() as Promise<DocsDocument>;
 }
 
 /**
@@ -52,37 +98,30 @@ async function waitForQuota() {
   writeTimestamps.push(Date.now());
 }
 
-/** Global serial queue — prevents concurrent writes from racing. */
-let writeQueue: Promise<void> = Promise.resolve();
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function batchUpdateDoc(accessToken: string, docId: string, requests: any[]): Promise<void> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Docs API request shapes are highly polymorphic
+async function batchUpdateDoc(accessToken: string, docId: string, requests: any[], counter?: WriteCounter): Promise<void> {
   if (!requests.length) return;
 
-  const task = writeQueue.then(async () => {
-    await waitForQuota();
+  await waitForQuota();
+  if (counter) counter.writes++;
 
-    const MAX_RETRIES = 3;
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const res = await fetch(`${DOCS_API}/${docId}:batchUpdate`, {
-        method: "POST",
-        headers: headers(accessToken, "application/json"),
-        body: JSON.stringify({ requests }),
-      });
-      if (res.ok) return;
-      if (res.status === 429 && attempt < MAX_RETRIES) {
-        const delay = 15000 * Math.pow(2, attempt); // 15s, 30s, 60s
-        console.warn(`Docs API 429, retrying in ${delay / 1000}s (attempt ${attempt + 1}/${MAX_RETRIES})`);
-        await new Promise(r => setTimeout(r, delay));
-        continue;
-      }
-      const err = await res.text();
-      throw new Error(`Docs batchUpdate failed: ${res.status} ${err}`);
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(`${DOCS_API}/${docId}:batchUpdate`, {
+      method: "POST",
+      headers: headers(accessToken, "application/json"),
+      body: JSON.stringify({ requests }),
+    });
+    if (res.ok) return;
+    if (res.status === 429 && attempt < MAX_RETRIES) {
+      const delay = 15000 * Math.pow(2, attempt); // 15s, 30s, 60s
+      console.warn(`Docs API 429, retrying in ${delay / 1000}s (attempt ${attempt + 1}/${MAX_RETRIES})`);
+      await new Promise(r => setTimeout(r, delay));
+      continue;
     }
-  });
-
-  writeQueue = task.catch(() => {});
-  return task;
+    const err = await res.text();
+    throw new Error(`Docs batchUpdate failed: ${res.status} ${err}`);
+  }
 }
 
 /* ---------- Public API ---------- */
@@ -96,8 +135,7 @@ export async function copyTemplate(
   title: string,
   folderId?: string
 ): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const body: any = { name: title };
+  const body: { name: string; parents?: string[] } = { name: title };
   if (folderId) {
     body.parents = [folderId];
   }
@@ -124,9 +162,10 @@ export async function copyTemplate(
 export async function fillPlaceholders(
   accessToken: string,
   docId: string,
-  replacements: Record<string, string>
+  replacements: Record<string, string>,
+  counter?: WriteCounter
 ): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- replaceAllText request shape
   const requests: any[] = [];
 
   for (const [placeholder, value] of Object.entries(replacements)) {
@@ -143,13 +182,19 @@ export async function fillPlaceholders(
 
   if (requests.length === 0) return;
 
-  await batchUpdateDoc(accessToken, docId, requests);
+  await batchUpdateDoc(accessToken, docId, requests, counter);
 }
 
 /**
  * Insert a dynamic table into a Google Doc.
  * Finds the {{markerName}} placeholder, removes it, and inserts a
  * fully populated table with a bold header row + one row per record.
+ *
+ * Optimized: merges fill + style into one batchUpdate call, eliminating
+ * a redundant readDocument call. Style requests use doc2 indices and are
+ * placed BEFORE insertText requests in the batch (since batchUpdate
+ * processes sequentially top-to-bottom, style runs on pre-shift indices,
+ * then text insertion shifts indices but we don't need them anymore).
  *
  * @param markerName  Placeholder name (e.g. 'recordsTable' → finds {{recordsTable}})
  * @param columns  Ordered list of { key, label, widthPt? } defining columns
@@ -160,21 +205,19 @@ export async function insertRecordsTable(
   docId: string,
   markerName: string,
   columns: { key: string; label: string; widthPt?: number }[],
-  records: Array<Record<string, string>>
+  records: Array<Record<string, string>>,
+  counter?: WriteCounter
 ): Promise<void> {
   if (!records.length || !columns.length) return;
 
   // 1. Read doc to find placeholder index
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = await readDocument(accessToken, docId);
   const marker = `{{${markerName}}}`;
   let placeholderStart = -1;
   let placeholderEnd = -1;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const el of doc.body.content) {
     if (!el.paragraph) continue;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const pe of (el.paragraph.elements || [])) {
       const text: string = pe.textRun?.content || "";
       const idx = text.indexOf(marker);
@@ -206,16 +249,14 @@ export async function insertRecordsTable(
         location: { index: placeholderStart },
       },
     },
-  ]);
+  ], counter);
 
   // 3. Re-read doc to get cell indices of the new table
   const doc2 = await readDocument(accessToken, docId);
 
   // Find the table near the original placeholder position
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let tableData: any = null;
+  let tableData: DocsTable | null = null;
   let tableStartIndex = -1;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const el of doc2.body.content) {
     if (el.table && el.startIndex >= placeholderStart - 2) {
       tableData = el.table;
@@ -225,14 +266,14 @@ export async function insertRecordsTable(
   }
   if (!tableData || tableStartIndex < 0) return;
 
-  // 4. Set column widths (if specified)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const structRequests: any[] = [];
+  // 4. Build style requests FIRST (using current doc2 indices, before text insertion shifts them)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Docs API request shapes
+  const combinedRequests: any[] = [];
 
   // Column widths
   for (let ci = 0; ci < numCols; ci++) {
     if (columns[ci].widthPt) {
-      structRequests.push({
+      combinedRequests.push({
         updateTableColumnProperties: {
           tableStartLocation: { index: tableStartIndex },
           columnIndices: [ci],
@@ -247,7 +288,7 @@ export async function insertRecordsTable(
   }
 
   // Header row light gray background
-  structRequests.push({
+  combinedRequests.push({
     updateTableCellStyle: {
       tableRange: {
         tableCellLocation: {
@@ -267,10 +308,28 @@ export async function insertRecordsTable(
     },
   });
 
-  // 5. Fill cells + apply structure in one batch — process from bottom-right to top-left so indices stay valid
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fillRequests: any[] = [...structRequests];
+  // Center-align all cells and un-bold data rows (using doc2 indices — BEFORE text insertion)
+  for (let ri = 0; ri < numRows; ri++) {
+    const row = tableData.tableRows[ri];
+    if (!row) continue;
+    for (let ci = 0; ci < numCols; ci++) {
+      const cell = row.tableCells[ci];
+      if (!cell?.content?.[0]) continue;
+      const pStart = cell.content[0].startIndex;
+      const pEnd = cell.content[cell.content.length - 1].endIndex;
 
+      // Center-align all columns
+      combinedRequests.push({
+        updateParagraphStyle: {
+          range: { startIndex: pStart, endIndex: pEnd },
+          paragraphStyle: { alignment: "CENTER" },
+          fields: "alignment",
+        },
+      });
+    }
+  }
+
+  // 5. Fill cells — process from bottom-right to top-left so indices stay valid
   // Data rows (bottom to top, right to left)
   for (let ri = records.length - 1; ri >= 0; ri--) {
     const row = tableData.tableRows[ri + 1]; // +1 for header row
@@ -281,7 +340,7 @@ export async function insertRecordsTable(
       const startIdx = cell.content[0].startIndex;
       const value = records[ri][columns[ci].key] || "";
       if (value) {
-        fillRequests.push({
+        combinedRequests.push({
           insertText: { location: { index: startIdx }, text: value },
         });
       }
@@ -297,11 +356,11 @@ export async function insertRecordsTable(
     const label = columns[ci].label;
 
     // Insert header label
-    fillRequests.push({
+    combinedRequests.push({
       insertText: { location: { index: startIdx }, text: label },
     });
     // Bold the header label
-    fillRequests.push({
+    combinedRequests.push({
       updateTextStyle: {
         range: { startIndex: startIdx, endIndex: startIdx + label.length },
         textStyle: { bold: true },
@@ -310,57 +369,8 @@ export async function insertRecordsTable(
     });
   }
 
-  await batchUpdateDoc(accessToken, docId, fillRequests);
-
-  // 6. Center-align all cells except column 0 (Terminal Name)
-  const doc3 = await readDocument(accessToken, docId);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let tableData3: any = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const el of doc3.body.content) {
-    if (el.table && el.startIndex >= placeholderStart - 2) {
-      tableData3 = el.table;
-      break;
-    }
-  }
-
-  if (tableData3) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const styleRequests: any[] = [];
-    for (let ri = 0; ri < numRows; ri++) {
-      const row = tableData3.tableRows[ri];
-      if (!row) continue;
-      for (let ci = 0; ci < numCols; ci++) {
-        const cell = row.tableCells[ci];
-        if (!cell?.content?.[0]) continue;
-        const pStart = cell.content[0].startIndex;
-        const pEnd = cell.content[cell.content.length - 1].endIndex;
-
-        // Center-align all columns
-        styleRequests.push({
-          updateParagraphStyle: {
-            range: { startIndex: pStart, endIndex: pEnd },
-            paragraphStyle: { alignment: "CENTER" },
-            fields: "alignment",
-          },
-        });
-
-        // Data rows: explicitly un-bold
-        if (ri > 0 && pEnd - 1 > pStart) {
-          styleRequests.push({
-            updateTextStyle: {
-              range: { startIndex: pStart, endIndex: pEnd - 1 },
-              textStyle: { bold: false },
-              fields: "bold",
-            },
-          });
-        }
-      }
-    }
-    if (styleRequests.length) {
-      await batchUpdateDoc(accessToken, docId, styleRequests);
-    }
-  }
+  // 6. Send as one batch — style first (pre-shift indices), then fill (bottom-to-top)
+  await batchUpdateDoc(accessToken, docId, combinedRequests, counter);
 }
 
 /**
@@ -472,27 +482,29 @@ export type PicturesGridDef = {
  * Insert a titled 2-column image grid into a Google Doc.
  * Finds the {{marker}} placeholder, replaces it with a styled title
  * and a borderless table containing the images.
+ *
+ * Optimized: merged from 4 batchUpdate calls to 2:
+ *   Call 1: delete marker + insert title + style title + insertTable
+ *   Call 2: insert images + make table borderless
  */
 export async function insertPicturesGrid(
   accessToken: string,
   docId: string,
-  grid: PicturesGridDef
+  grid: PicturesGridDef,
+  counter?: WriteCounter
 ): Promise<void> {
   const { marker: markerName, title, imageUrls } = grid;
   const validUrls = imageUrls.filter(u => u && u.trim());
   if (!validUrls.length) return;
 
   // 1. Find marker
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = await readDocument(accessToken, docId);
   const markerText = `{{${markerName}}}`;
   let phStart = -1;
   let phEnd = -1;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const el of doc.body.content) {
     if (!el.paragraph) continue;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const pe of (el.paragraph.elements || [])) {
       const text: string = pe.textRun?.content || "";
       const idx = text.indexOf(markerText);
@@ -507,8 +519,12 @@ export async function insertPicturesGrid(
 
   if (phStart < 0) return; // marker not found
 
-  // 2. Delete marker and insert styled title in one batch
+  // 2. Merged call 1: delete marker + insert title + style title + insert table
+  //    (was 2 separate batchUpdate calls, now 1)
   const titleText = `${title}\n`;
+  const numRows = Math.ceil(validUrls.length / 2);
+  const tableInsertIdx = phStart + titleText.length;
+
   await batchUpdateDoc(accessToken, docId, [
     { deleteContentRange: { range: { startIndex: phStart, endIndex: phEnd } } },
     { insertText: { text: titleText, location: { index: phStart } } },
@@ -535,29 +551,18 @@ export async function insertPicturesGrid(
         fields: "bold,fontSize,foregroundColor",
       },
     },
-  ]);
-
-  // 4. Insert 2-column borderless table for images
-  const numRows = Math.ceil(validUrls.length / 2);
-  const tableInsertIdx = phStart + titleText.length;
-
-  await batchUpdateDoc(accessToken, docId, [
     { insertTable: { rows: numRows, columns: 2, location: { index: tableInsertIdx } } },
-  ]);
+  ], counter);
 
-  // 5. Re-read doc to find table cell positions
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // 3. Re-read doc to find table cell positions
   const doc2 = await readDocument(accessToken, docId);
   const cellStarts: number[] = [];
   let tableStartIdx = -1;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const el of doc2.body.content) {
     if (el.table && el.startIndex >= tableInsertIdx) {
       tableStartIdx = el.startIndex;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const row of el.table.tableRows) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const cell of row.tableCells) {
           const firstPara = cell.content?.[0];
           if (firstPara) {
@@ -571,9 +576,11 @@ export async function insertPicturesGrid(
 
   if (!cellStarts.length) return;
 
-  // 6. Insert images from last to first (reverse order to avoid index shifts)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const imgRequests: any[] = [];
+  // 4. Merged call 2: insert images + make table borderless (was 2 calls, now 1)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- insertInlineImage request shape
+  const combinedRequests: any[] = [];
+
+  // Image insertions (reverse order to avoid index shifts)
   for (let i = validUrls.length - 1; i >= 0; i--) {
     const cellIdx = cellStarts[i];
     if (cellIdx == null) continue;
@@ -589,7 +596,7 @@ export async function insertPicturesGrid(
       uri = `https://lh3.googleusercontent.com/d/${openMatch[1]}`;
     }
 
-    imgRequests.push({
+    combinedRequests.push({
       insertInlineImage: {
         uri,
         location: { index: cellIdx },
@@ -601,44 +608,40 @@ export async function insertPicturesGrid(
     });
   }
 
-  if (imgRequests.length) {
-    try {
-      await batchUpdateDoc(accessToken, docId, imgRequests);
-    } catch (err) {
-      console.error("Failed to insert pictures batch, trying one-by-one:", err);
-      // Fallback: insert one by one, skipping failures
-      for (const req of imgRequests) {
-        try {
-          await batchUpdateDoc(accessToken, docId, [req]);
-        } catch (e) {
-          console.warn("Skipping image:", (e as Error).message);
-        }
-      }
-    }
-  }
-
-  // 7. Make table borderless
+  // Borderless table styling (appended to same batch as images)
   if (tableStartIdx >= 0) {
     const noBorder = {
       color: { color: { rgbColor: { red: 1, green: 1, blue: 1 } } },
       width: { magnitude: 0, unit: "PT" },
       dashStyle: "SOLID",
     };
-    try {
-      await batchUpdateDoc(accessToken, docId, [{
-        updateTableCellStyle: {
-          tableCellStyle: {
-            borderBottom: noBorder,
-            borderTop: noBorder,
-            borderLeft: noBorder,
-            borderRight: noBorder,
-          },
-          tableStartLocation: { index: tableStartIdx },
-          fields: "borderBottom,borderTop,borderLeft,borderRight",
+    combinedRequests.push({
+      updateTableCellStyle: {
+        tableCellStyle: {
+          borderBottom: noBorder,
+          borderTop: noBorder,
+          borderLeft: noBorder,
+          borderRight: noBorder,
         },
-      }]);
-    } catch {
-      // Non-critical — borders remain visible but invoice still works
+        tableStartLocation: { index: tableStartIdx },
+        fields: "borderBottom,borderTop,borderLeft,borderRight",
+      },
+    });
+  }
+
+  if (combinedRequests.length) {
+    try {
+      await batchUpdateDoc(accessToken, docId, combinedRequests, counter);
+    } catch (err) {
+      console.error("Failed to insert pictures+borders batch, trying images one-by-one:", err);
+      // Fallback: insert images one by one, skipping failures
+      for (const req of combinedRequests) {
+        try {
+          await batchUpdateDoc(accessToken, docId, [req], counter);
+        } catch (e) {
+          console.warn("Skipping request:", (e as Error).message);
+        }
+      }
     }
   }
 }
@@ -654,7 +657,8 @@ export async function generateInvoicePdf(
   pdfFilename: string,
   folderId: string,
   tables?: TableDef[],
-  picturesGrids?: PicturesGridDef[]
+  picturesGrids?: PicturesGridDef[],
+  counter?: WriteCounter
 ): Promise<string> {
   // 1. Copy template to a new doc
   const docId = await copyTemplate(accessToken, templateId, `TEMP_${pdfFilename}`, folderId);
@@ -664,7 +668,7 @@ export async function generateInvoicePdf(
     if (tables && tables.length > 0) {
       for (const t of tables) {
         if (t.records.length > 0) {
-          await insertRecordsTable(accessToken, docId, t.marker, t.columns, t.records);
+          await insertRecordsTable(accessToken, docId, t.marker, t.columns, t.records, counter);
         }
       }
     }
@@ -673,13 +677,13 @@ export async function generateInvoicePdf(
     if (picturesGrids && picturesGrids.length > 0) {
       for (const pg of picturesGrids) {
         if (pg.imageUrls.length > 0) {
-          await insertPicturesGrid(accessToken, docId, pg);
+          await insertPicturesGrid(accessToken, docId, pg, counter);
         }
       }
     }
 
     // 4. Fill header-level placeholders
-    await fillPlaceholders(accessToken, docId, replacements);
+    await fillPlaceholders(accessToken, docId, replacements, counter);
 
     // 5. Export as PDF
     const pdfBuffer = await exportAsPdf(accessToken, docId);

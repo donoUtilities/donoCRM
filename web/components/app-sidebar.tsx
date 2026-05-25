@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   IconBolt,
   IconCurrencyDollar,
@@ -134,10 +135,10 @@ function SidebarUserFooter() {
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" align="start" className="w-48">
               <DropdownMenuItem asChild>
-                <a href="/profile">
+                <Link href="/profile">
                   <IconUser className="mr-2 size-4" />
                   Profile
-                </a>
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })}>
                 <IconLogout className="mr-2 size-4" />
@@ -154,10 +155,10 @@ function SidebarUserFooter() {
     <SidebarMenu>
       <SidebarMenuItem>
         <SidebarMenuButton asChild>
-          <a href="/login">
+          <Link href="/login">
             <IconLogin />
             <span>Login</span>
-          </a>
+          </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
@@ -174,13 +175,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="/">
+              <Link href="/">
                 <img
                   src="/logo.png"
                   alt="Dono Utilities"
                   className="h-8 w-auto"
                 />
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -193,10 +194,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <ModeSwitcherItem />
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <a href="#">
+                  <Link href="#">
                     <IconSettings />
                     <span>Settings</span>
-                  </a>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

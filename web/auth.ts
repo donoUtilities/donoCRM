@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import clientPromise from "@/lib/mongodb";
+import { env } from "@/lib/env";
 
 const DB_NAME = "DonoUtilities";
 const COLLECTION = "DonoUtilities_Users";
@@ -13,7 +14,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           scope:
             "openid email profile https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive",
           access_type: "offline",
-          prompt: "consent",
+          prompt: "select_account",
         },
       },
     }),
@@ -53,7 +54,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       // On initial sign-in or whenever we need to refresh user data
-      if (trigger === "signIn" || !token.designation) {
+      if (trigger === "signIn" || token.designation === undefined) {
         try {
           const client = await clientPromise;
           const db = client.db(DB_NAME);
@@ -78,8 +79,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: new URLSearchParams({
-              client_id: process.env.AUTH_GOOGLE_ID!,
-              client_secret: process.env.AUTH_GOOGLE_SECRET!,
+              client_id: env.AUTH_GOOGLE_ID,
+              client_secret: env.AUTH_GOOGLE_SECRET,
               grant_type: "refresh_token",
               refresh_token: token.refreshToken as string,
             }),
@@ -98,11 +99,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async session({ session, token }) {
-      // Expose custom fields to the client session
+      // Expose ONLY safe fields to the client session
       session.user.name = token.name as string;
       session.user.designation = token.designation as string;
-      // Make access token available server-side
-      session.accessToken = token.accessToken as string;
+      // NOTE: accessToken is intentionally NOT exposed here.
+      // It lives on the JWT and server-side routes read it via getToken().
       return session;
     },
   },

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { withAuth } from "@/lib/with-auth";
 
 const DB_NAME = "DonoUtilities";
 const COLLECTION = "DonoUtilities_WireCenter";
 
-export async function GET() {
+export const GET = withAuth(async () => {
   try {
     const client = await clientPromise;
     const db = client.db(DB_NAME);
@@ -23,9 +24,9 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request) => {
   try {
     const body = await request.json();
     const { name } = body;
@@ -66,4 +67,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

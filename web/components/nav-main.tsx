@@ -1,6 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
+import Link from "next/link"
 import { type Icon } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 
@@ -45,10 +46,10 @@ export function NavMain({
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton asChild tooltip={item.title} isActive={isActive}>
-                  <a href={item.url}>
+                  <Link href={item.url}>
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
-                  </a>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )
@@ -87,10 +88,10 @@ export function NavMain({
                             isActive && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground font-medium"
                           )}
                         >
-                          <a href={item.url}>
+                          <Link href={item.url}>
                             {item.icon && <item.icon className="size-4" />}
                             <span>{item.title}</span>
-                          </a>
+                          </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     )

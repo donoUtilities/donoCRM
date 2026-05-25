@@ -1,6 +1,7 @@
 import { MongoClient } from "mongodb";
+import { env } from "@/lib/env";
 
-const uri = process.env.NUXT_DONO_MONGODB_URI!;
+const uri = env.NUXT_DONO_MONGODB_URI;
 
 const options = {
   maxPoolSize: 20,

@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";
 import { DataTable, ColumnDef } from "@/components/data-table";
 import { useInfiniteData } from "@/hooks/use-infinite-data";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 interface BspdItem {
   _id: string;
@@ -56,14 +57,16 @@ export function BspdContent() {
 
   const fo = filterOptions;
 
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
   const filteredRecords = React.useMemo(() => {
     return records.filter((r) => {
       if (filters.wireCenter !== "all" && r.wireCenter !== filters.wireCenter) return false;
       if (filters.cableType !== "all" && r.cableType !== filters.cableType) return false;
       if (filters.team !== "all" && r.team !== filters.team) return false;
       if (filters.invoiceStatus !== "all" && r.invoiceStatus !== filters.invoiceStatus) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase();
         return (
           r.feeder.toLowerCase().includes(q) ||
           r.wireCenter.toLowerCase().includes(q) ||
@@ -74,7 +77,7 @@ export function BspdContent() {
       }
       return true;
     });
-  }, [records, searchQuery, filters]);
+  }, [records, debouncedSearch, filters]);
 
   return (
     <div className="flex flex-col h-full min-h-0">

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";
 import { DataTable, ColumnDef } from "@/components/data-table";
 import { useInfiniteData } from "@/hooks/use-infinite-data";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 interface DtapRecord {
   _id: string;
@@ -48,6 +49,8 @@ export function DtapContent() {
   // Filter options from full database (via API distinct queries)
   const fo = filterOptions;
 
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
   const filteredRecords = React.useMemo(() => {
     return records.filter((r) => {
       if (filters.wireCenter !== "all" && r.wireCenterName !== filters.wireCenter) return false;
@@ -55,8 +58,8 @@ export function DtapContent() {
       if (filters.completion !== "all" && r.completionStatus !== filters.completion) return false;
       if (filters.testing !== "all" && r.testingStatus !== filters.testing) return false;
       if (filters.invoice !== "all" && r.invoiceStatus !== filters.invoice) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase();
         return (
           r.dtap.toLowerCase().includes(q) ||
           r.wireCenterName.toLowerCase().includes(q) ||
@@ -68,7 +71,7 @@ export function DtapContent() {
       }
       return true;
     });
-  }, [records, searchQuery, filters]);
+  }, [records, debouncedSearch, filters]);
 
   return (
     <div className="flex flex-col h-full min-h-0">

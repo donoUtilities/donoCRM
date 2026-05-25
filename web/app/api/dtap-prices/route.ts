@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { withAuth } from "@/lib/with-auth";
 
 const DB_NAME = "DonoUtilities";
 const COLLECTION = "DonoUtilities_DtapPrices";
 const PAGE_SIZE = 100;
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request) => {
   try {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
@@ -68,9 +69,9 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request) => {
   try {
     const body = await request.json();
     const client = await clientPromise;
@@ -98,4 +99,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

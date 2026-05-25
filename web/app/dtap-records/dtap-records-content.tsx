@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";
 import { DataTable, ColumnDef } from "@/components/data-table";
 import { useInfiniteData } from "@/hooks/use-infinite-data";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -203,6 +204,8 @@ export function DtapRecordsContent() {
 
   const fo = filterOptions;
 
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
   const filteredRecords = React.useMemo(() => {
     return records.filter((r) => {
       if (filters.dtap !== "all" && r.dtapName !== filters.dtap) return false;
@@ -219,8 +222,8 @@ export function DtapRecordsContent() {
         if (filters.paymentStatus === "Paid" && !r.invoiceInfo.isPaid) return false;
         if (filters.paymentStatus === "Unpaid" && r.invoiceInfo.isPaid) return false;
       }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase();
         return (
           r.dtapName.toLowerCase().includes(q) ||
           r.wireCenterName.toLowerCase().includes(q) ||
@@ -234,7 +237,7 @@ export function DtapRecordsContent() {
       }
       return true;
     });
-  }, [records, searchQuery, filters]);
+  }, [records, debouncedSearch, filters]);
 
   // Derive invoice number from the loaded records (all share the same invoice when filtered by invoiceId)
   const invoiceNumber = React.useMemo(() => {

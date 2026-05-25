@@ -15,6 +15,7 @@ import { FilterSelect } from "@/components/ui/filter-select";
 import { PageHeader } from "@/components/page-header";
 import { DataTable, ColumnDef } from "@/components/data-table";
 import { useInfiniteData } from "@/hooks/use-infinite-data";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 interface BspdPrice {
   _id: string;
@@ -56,11 +57,13 @@ export function BspdPricesContent() {
 
   const fo = filterOptions;
 
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
   const filteredRecords = React.useMemo(() => {
     return records.filter((r) => {
       if (filters.uom !== "all" && r.uom !== filters.uom) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase();
         return (
           r.itemNumber.toLowerCase().includes(q) ||
           r.itemName.toLowerCase().includes(q) ||
@@ -69,7 +72,7 @@ export function BspdPricesContent() {
       }
       return true;
     });
-  }, [records, searchQuery, filters]);
+  }, [records, debouncedSearch, filters]);
 
   return (
     <div className="flex flex-col h-full min-h-0">

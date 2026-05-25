@@ -15,6 +15,7 @@ import { FilterSelect } from "@/components/ui/filter-select";
 import { PageHeader } from "@/components/page-header";
 import { DataTable, ColumnDef } from "@/components/data-table";
 import { useInfiniteData } from "@/hooks/use-infinite-data";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 interface BspdInvoice {
   _id: string;
@@ -53,6 +54,8 @@ export function BspdInvoicesContent() {
 
   const fo = filterOptions;
 
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
   const filteredRecords = React.useMemo(() => {
     return records.filter((r) => {
       if (filters.feeder !== "all" && r.feederName !== filters.feeder) return false;
@@ -63,8 +66,8 @@ export function BspdInvoicesContent() {
         const paid = filters.payment === "Paid";
         if (r.isPaid !== paid) return false;
       }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase();
         return (
           r.invoiceNumber.toLowerCase().includes(q) ||
           r.feederName.toLowerCase().includes(q)
@@ -72,7 +75,7 @@ export function BspdInvoicesContent() {
       }
       return true;
     });
-  }, [records, searchQuery, filters]);
+  }, [records, debouncedSearch, filters]);
 
   const [expandedRows, setExpandedRows] = React.useState<Set<string>>(new Set());
 

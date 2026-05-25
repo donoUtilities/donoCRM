@@ -89,7 +89,13 @@ export function useUrlFilters<K extends string>(
 
       const qs = params.toString();
       const newUrl = qs ? `${pathname}?${qs}` : pathname;
-      router.replace(newUrl, { scroll: false });
+      // Guard: skip router.replace if URL is unchanged (prevents infinite loop
+      // from React Strict Mode double-firing the sync effect on mount)
+      const currentQs = searchParamsRef.current.toString();
+      const currentUrl = currentQs ? `${pathname}?${currentQs}` : pathname;
+      if (newUrl !== currentUrl) {
+        router.replace(newUrl, { scroll: false });
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [pathname]
