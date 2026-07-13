@@ -28,6 +28,10 @@ export const env = {
   // MongoDB
   NUXT_DONO_MONGODB_URI: required("NUXT_DONO_MONGODB_URI"),
 
+  // AppSheet
+  APPSHEET_APP_ID: required("APPSHEET_APP_ID"),
+  APPSHEET_ACCESS_KEY: required("APPSHEET_ACCESS_KEY"),
+
   // Concurrency (optional, has a code-level fallback)
   INVOICE_BATCH_CONCURRENCY: optional("INVOICE_BATCH_CONCURRENCY", "4"),
 };

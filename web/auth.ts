@@ -64,6 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
 
           if (dbUser) {
+            token.id = dbUser._id.toString();
             token.name = dbUser.name || token.name;
             token.designation = dbUser.designation || "";
           }
@@ -100,6 +101,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
     async session({ session, token }) {
       // Expose ONLY safe fields to the client session
+      session.user.id = token.id as string;
       session.user.name = token.name as string;
       session.user.designation = token.designation as string;
       // NOTE: accessToken is intentionally NOT exposed here.

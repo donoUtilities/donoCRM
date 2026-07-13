@@ -10,8 +10,10 @@ import {
   IconSearch,
   IconTrash,
   IconUser,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -81,6 +83,7 @@ const emptyForm = {
 };
 
 export function UsersContent() {
+  const { data: session } = useSession();
   const [users, setUsers] = React.useState<User[]>([]);
   const [teams, setTeams] = React.useState<Team[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -90,6 +93,7 @@ export function UsersContent() {
   const [deletingUser, setDeletingUser] = React.useState<User | null>(null);
   const [form, setForm] = React.useState(emptyForm);
   const [saving, setSaving] = React.useState(false);
+  const [syncing, setSyncing] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const { filters, setFilter, searchQuery: urlSearch, setSearchQuery: setUrlSearch, clearFilters, hasActiveFilters } =
     useUrlFilters({
@@ -239,6 +243,25 @@ export function UsersContent() {
     }
   }
 
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/users/sync", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to sync users");
+      }
+      toast.success(data.message || "Users synced successfully");
+      fetchData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <PageHeader
@@ -301,10 +324,23 @@ export function UsersContent() {
           </>
         }
         actions={
-          <Button onClick={openCreate} size="sm">
-            <IconPlus className="mr-1 size-4" />
-            Add User
-          </Button>
+          <>
+            {(session?.user?.id === "6a131382e3fa8f250493dbe7" || session?.user?.email === "adeel@donoutilities.com") && (
+              <Button
+                onClick={handleSync}
+                size="icon"
+                className="h-8 w-8 bg-red-600 hover:bg-red-700 text-white shrink-0"
+                disabled={syncing}
+                title="Sync from AppSheet"
+              >
+                <IconRefresh className={cn("size-4", syncing && "animate-spin")} />
+              </Button>
+            )}
+            <Button onClick={openCreate} size="sm" disabled={syncing}>
+              <IconPlus className="mr-1 size-4" />
+              Add User
+            </Button>
+          </>
         }
       />
 

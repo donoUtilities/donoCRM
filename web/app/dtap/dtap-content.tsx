@@ -3,7 +3,10 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useUrlFilters } from "@/hooks/use-url-filters";
-import { IconSearch, IconFileSpreadsheet, IconX, IconPlus, IconUpload, IconDownload } from "@tabler/icons-react";
+import { IconSearch, IconFileSpreadsheet, IconX, IconPlus, IconUpload, IconDownload, IconRefresh } from "@tabler/icons-react";
+import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 import { FilterSelect } from "@/components/ui/filter-select";
 import { Button } from "@/components/ui/button";
@@ -37,9 +40,10 @@ const columns: ColumnDef<DtapRecord>[] = [
 ];
 
 export function DtapContent() {
-  const router = useRouter();
-  const { records, loading, loadingMore, totalCount, hasMore, loadMore, filterOptions } =
+  const { data: session } = useSession();
+  const { records, loading, loadingMore, totalCount, hasMore, loadMore, filterOptions, reset } =
     useInfiniteData<DtapRecord>({ apiUrl: "/api/dtap" });
+  const [syncing, setSyncing] = React.useState(false);
 
   const { filters, setFilter, searchQuery, setSearchQuery, clearFilters, hasActiveFilters } =
     useUrlFilters({
@@ -47,9 +51,29 @@ export function DtapContent() {
     });
 
   // Filter options from full database (via API distinct queries)
+  const router = useRouter();
   const fo = filterOptions;
 
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/dtap/sync", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to sync DTAPs");
+      }
+      toast.success(data.message || "DTAPs synced successfully");
+      reset();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const filteredRecords = React.useMemo(() => {
     return records.filter((r) => {
@@ -107,14 +131,25 @@ export function DtapContent() {
         }
         actions={
           <>
-            <Button size="sm">
+            {(session?.user?.id === "6a131382e3fa8f250493dbe7" || session?.user?.email === "adeel@donoutilities.com") && (
+              <Button
+                onClick={handleSync}
+                size="icon"
+                className="h-8 w-8 bg-red-600 hover:bg-red-700 text-white shrink-0"
+                disabled={syncing}
+                title="Sync from AppSheet"
+              >
+                <IconRefresh className={cn("size-4", syncing && "animate-spin")} />
+              </Button>
+            )}
+            <Button size="sm" disabled={syncing}>
               <IconPlus className="mr-1 size-4" />
               Add
             </Button>
-            <Button variant="outline" size="icon" className="size-8" title="Import">
+            <Button variant="outline" size="icon" className="size-8" title="Import" disabled={syncing}>
               <IconUpload className="size-4 text-green-500" />
             </Button>
-            <Button variant="outline" size="icon" className="size-8" title="Export">
+            <Button variant="outline" size="icon" className="size-8" title="Export" disabled={syncing}>
               <IconDownload className="size-4 text-red-500" />
             </Button>
           </>

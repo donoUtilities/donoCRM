@@ -7,8 +7,11 @@ import {
   IconPlus,
   IconSearch,
   IconTrash,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,8 +39,10 @@ interface WireCenter {
 }
 
 export function WireCentersContent() {
+  const { data: session } = useSession();
   const [items, setItems] = React.useState<WireCenter[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [syncing, setSyncing] = React.useState(false);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<WireCenter | null>(null);
@@ -144,6 +149,25 @@ export function WireCentersContent() {
     }
   }
 
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/wire-centers/sync", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to sync wire centers");
+      }
+      toast.success(data.message || "Wire centers synced successfully");
+      fetchItems();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <PageHeader
@@ -161,10 +185,23 @@ export function WireCentersContent() {
           </div>
         }
         actions={
-          <Button onClick={openCreate} size="sm">
-            <IconPlus className="mr-1 size-4" />
-            Add Wire Center
-          </Button>
+          <>
+            {(session?.user?.id === "6a131382e3fa8f250493dbe7" || session?.user?.email === "adeel@donoutilities.com") && (
+              <Button
+                onClick={handleSync}
+                size="icon"
+                className="h-8 w-8 bg-red-600 hover:bg-red-700 text-white shrink-0"
+                disabled={syncing}
+                title="Sync from AppSheet"
+              >
+                <IconRefresh className={cn("size-4", syncing && "animate-spin")} />
+              </Button>
+            )}
+            <Button onClick={openCreate} size="sm" disabled={syncing}>
+              <IconPlus className="mr-1 size-4" />
+              Add Wire Center
+            </Button>
+          </>
         }
       />
 
