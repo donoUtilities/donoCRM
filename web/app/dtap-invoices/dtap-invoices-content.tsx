@@ -12,6 +12,9 @@ import {
   IconRefresh,
   IconPlayerStop,
 } from "@tabler/icons-react";
+import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 
@@ -81,13 +84,16 @@ export function DtapInvoicesContent() {
   // Debounce search to avoid firing a server request on every keystroke
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
 
+  const { data: session } = useSession();
+  const [syncing, setSyncing] = React.useState(false);
+
   // Pass filters + debounced search to useInfiniteData for server-side filtering
   const serverFilters = React.useMemo(() => ({
     ...filters,
     q: debouncedSearch,
   }), [filters, debouncedSearch]);
 
-  const { records, loading, loadingMore, totalCount, hasMore, loadMore, filterOptions, updateRecord } =
+  const { records, loading, loadingMore, totalCount, hasMore, loadMore, filterOptions, updateRecord, reset } =
     useInfiniteData<DtapInvoice>({ apiUrl: "/api/dtap-invoices", filters: serverFilters });
 
   const fo = filterOptions;
@@ -239,6 +245,25 @@ export function DtapInvoicesContent() {
 
   const isGenerating = (id: string) => batchGeneratingIds.has(id);
 
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/dtap-invoices/sync", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to sync DTAP invoices");
+      }
+      toast.success(data.message || "DTAP invoices synced successfully");
+      reset();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <PageHeader
@@ -272,17 +297,30 @@ export function DtapInvoicesContent() {
           </>
         }
         actions={
-          selectedIds.size > 1 ? (
-            <Button
-              size="sm"
-              className="h-8 text-xs"
-              disabled={batchState.running}
-              onClick={() => handleBatchGenerate([...selectedIds])}
-            >
-              <IconFileTypePdf className="mr-1.5 size-3.5" />
-              Generate Selected ({selectedIds.size})
-            </Button>
-          ) : null
+          <div className="flex items-center gap-2">
+            {selectedIds.size > 1 && (
+              <Button
+                size="sm"
+                className="h-8 text-xs"
+                disabled={batchState.running}
+                onClick={() => handleBatchGenerate([...selectedIds])}
+              >
+                <IconFileTypePdf className="mr-1.5 size-3.5" />
+                Generate Selected ({selectedIds.size})
+              </Button>
+            )}
+            {(session?.user?.id === "6a131382e3fa8f250493dbe7" || session?.user?.email === "adeel@donoutilities.com") && (
+              <Button
+                onClick={handleSync}
+                size="icon"
+                className="h-8 w-8 bg-red-600 hover:bg-red-700 text-white shrink-0"
+                disabled={syncing}
+                title="Sync from AppSheet"
+              >
+                <IconRefresh className={cn("size-4", syncing && "animate-spin")} />
+              </Button>
+            )}
+          </div>
         }
       />
 
