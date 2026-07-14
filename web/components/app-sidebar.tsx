@@ -88,6 +88,15 @@ const data = {
         { title: "Prices", url: "/splicing-prices", icon: IconCurrencyDollar },
       ],
     },
+    {
+      title: "Tree Trim",
+      icon: IconSettings,
+      items: [
+        { title: "Records", url: "/treetrim-records", icon: IconDatabase },
+        { title: "Invoices", url: "/treetrim-invoices", icon: IconReceipt },
+        { title: "Prices", url: "/treetrim-prices", icon: IconCurrencyDollar },
+      ],
+    },
   ],
 };
 
