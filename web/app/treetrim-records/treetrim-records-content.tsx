@@ -50,7 +50,7 @@ const columns: ColumnDef<TreeTrimRecord>[] = [
   { label: "Fiber Fusion", key: "fiberFusionFibererial" },
   { label: "After Picture", key: "afterPicture" },
   { label: "Red Line Picture", key: "redLinePicture" },
-  { label: "Invoice Requested", key: "invoiceRequested" },
+  { label: "Invoice Requested", key: "invoiceRequested", type: "bool" },
   { label: "Requested TimeStamp", key: "requestedOn", type: "date" },
 ];
 

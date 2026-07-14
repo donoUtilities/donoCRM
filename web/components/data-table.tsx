@@ -5,6 +5,8 @@ import {
   IconArrowUp,
   IconArrowDown,
   IconArrowsSort,
+  IconCheck,
+  IconX,
 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -122,11 +124,15 @@ function defaultRenderCell<T>(value: unknown, col: ColumnDef<T>): React.ReactNod
   }
 
   if (col.type === "bool") {
-    return (
-      <Badge variant={v === true ? "default" : v === false ? "destructive" : "secondary"}>
-        {v === true ? "Yes" : v === false ? "No" : "—"}
-      </Badge>
-    );
+    const isTrue = v === true || v === "true" || v === "Y" || v === "Yes";
+    const isFalse = v === false || v === "false" || v === "N" || v === "No";
+    if (isTrue) {
+      return <IconCheck className="size-5 text-green-600 stroke-[3]" />;
+    }
+    if (isFalse) {
+      return <IconX className="size-5 text-red-600 stroke-[3]" />;
+    }
+    return <span className="text-muted-foreground">—</span>;
   }
 
   if (col.type === "badge") {

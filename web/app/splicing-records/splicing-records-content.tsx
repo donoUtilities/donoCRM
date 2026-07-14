@@ -87,7 +87,7 @@ const columns: ColumnDef<SplicingRecord>[] = [
   { label: "Port Pics", key: "portPictures" },
   { label: "Completed By", key: "completedBy" },
   { label: "Completed On", key: "completedOn", type: "date" },
-  { label: "Invoice Requested", key: "invoiceRequested" },
+  { label: "Invoice Requested", key: "invoiceRequested", type: "bool" },
   { label: "Requested On", key: "requestedOn", type: "date" },
 ];
 
