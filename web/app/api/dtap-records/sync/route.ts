@@ -10,11 +10,11 @@ const DTAP_COLLECTION = "DonoUtilities_Dtap";
 const TEAMS_COLLECTION = "DonoUtilities_Teams";
 const WC_COLLECTION = "DonoUtilities_WireCenter";
 
-function getAppSheetFileUrl(appId: string, accessKey: string, tableName: string, fileName: string) {
+function getAppSheetFileUrl(tableName: string, fileName: string) {
   if (!fileName || typeof fileName !== "string" || fileName.startsWith("http://") || fileName.startsWith("https://")) {
     return fileName || "";
   }
-  return `https://api.appsheet.com/api/v2/apps/${appId}/tables/${tableName}/files/${encodeURIComponent(fileName.trim())}?applicationAccessKey=${accessKey}`;
+  return `https://www.appsheet.com/template/gettablefileurl?appName=DONOUTILITIESConnector-112585626&tableName=${tableName}&fileName=${encodeURIComponent(fileName.trim())}`;
 }
 
 export const POST = withAuth(async () => {
@@ -119,8 +119,8 @@ export const POST = withAuth(async () => {
       const teamId = teamNameToIdMap.get(teamInput) || "";
 
       // Image Columns converted to readable URLs
-      const terminalPlacedPicture = getAppSheetFileUrl(appId, accessKey, tableName, row["Terminal Placed Picture"] || "");
-      const terminalTestedPicture = getAppSheetFileUrl(appId, accessKey, tableName, row["Terminal Tested Picture"] || "");
+      const terminalPlacedPicture = getAppSheetFileUrl(tableName, row["Terminal Placed Picture"] || "");
+      const terminalTestedPicture = getAppSheetFileUrl(tableName, row["Terminal Tested Picture"] || "");
 
       // Booleans
       const terminalPlaced = row["Terminal Placed"] === "Y" || row["Terminal Placed"] === "true" || row["Terminal Placed"] === true;
