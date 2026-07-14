@@ -342,6 +342,19 @@ export function DtapRecordsContent() {
           if (col.key === "terminalPlacedPicture" || col.key === "terminalTestedPicture") {
             const url = (row as any)[col.key] as string;
             if (!url) return "—";
+            const isPdf = url.toLowerCase().includes(".pdf");
+            if (isPdf) {
+              return (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); window.open(url, "_blank"); }}
+                  className="inline-flex items-center justify-center h-7 px-2.5 rounded bg-red-100 hover:bg-red-200 border border-red-300 text-red-700 text-xs font-semibold shrink-0 cursor-pointer transition-colors"
+                  title="Open PDF in new tab"
+                >
+                  PDF
+                </button>
+              );
+            }
             return (
               <button
                 type="button"
@@ -385,7 +398,19 @@ export function DtapRecordsContent() {
         <DialogContent className="max-w-2xl">
           <DialogTitle className="sr-only">{previewImage?.label}</DialogTitle>
           {previewImage && (
-            <img src={previewImage.url} alt={previewImage.label} className="w-full rounded" />
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-sm font-medium">{previewImage.label}</p>
+              {previewImage.url.toLowerCase().includes(".pdf") ? (
+                <div className="w-full h-[60vh] flex flex-col items-center justify-center gap-4">
+                  <p className="text-muted-foreground text-sm">This document is a PDF.</p>
+                  <Button onClick={() => window.open(previewImage.url, "_blank")}>
+                    Open PDF in New Tab
+                  </Button>
+                </div>
+              ) : (
+                <img src={previewImage.url} alt={previewImage.label} className="w-full rounded" />
+              )}
+            </div>
           )}
         </DialogContent>
       </Dialog>

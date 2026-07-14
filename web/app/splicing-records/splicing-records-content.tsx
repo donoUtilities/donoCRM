@@ -224,6 +224,19 @@ export function SplicingRecordsContent() {
           if (imageKeys.includes(col.key as keyof SplicingRecord)) {
             const url = row[col.key as keyof typeof row] as string;
             if (!url) return "—";
+            const isPdf = url.toLowerCase().includes(".pdf");
+            if (isPdf) {
+              return (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); window.open(url, "_blank"); }}
+                  className="inline-flex items-center justify-center h-7 px-2.5 rounded bg-red-100 hover:bg-red-200 border border-red-300 text-red-700 text-xs font-semibold shrink-0 cursor-pointer transition-colors"
+                  title="Open PDF in new tab"
+                >
+                  PDF
+                </button>
+              );
+            }
             return (
               <button
                 type="button"
@@ -245,20 +258,36 @@ export function SplicingRecordsContent() {
             if (!urls || !urls.length) return "—";
             return (
               <div className="flex gap-1 overflow-x-auto max-w-[200px] py-1">
-                {urls.map((url, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setPreviewImage({ url, label: `${col.label} #${index + 1}` }); }}
-                    className="block cursor-pointer shrink-0"
-                  >
-                    <img
-                      src={url}
-                      alt={`${col.label} ${index + 1}`}
-                      className="h-8 w-8 rounded object-cover border hover:scale-150 hover:z-10 transition-transform"
-                    />
-                  </button>
-                ))}
+                {urls.map((url, index) => {
+                  const isPdf = url.toLowerCase().includes(".pdf");
+                  if (isPdf) {
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); window.open(url, "_blank"); }}
+                        className="inline-flex items-center justify-center h-8 px-2 rounded bg-red-100 hover:bg-red-200 border border-red-300 text-red-700 text-[10px] font-bold shrink-0 cursor-pointer transition-colors"
+                        title="Open PDF in new tab"
+                      >
+                        PDF
+                      </button>
+                    );
+                  }
+                  return (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setPreviewImage({ url, label: `${col.label} #${index + 1}` }); }}
+                      className="block cursor-pointer shrink-0"
+                    >
+                      <img
+                        src={url}
+                        alt={`${col.label} ${index + 1}`}
+                        className="h-8 w-8 rounded object-cover border hover:scale-150 hover:z-10 transition-transform"
+                      />
+                    </button>
+                  );
+                })}
               </div>
             );
           }
@@ -276,11 +305,20 @@ export function SplicingRecordsContent() {
           {previewImage && (
             <div className="flex flex-col items-center gap-2">
               <p className="text-sm font-medium">{previewImage.label}</p>
-              <img
-                src={previewImage.url}
-                alt={previewImage.label}
-                className="max-h-[70vh] w-full rounded-md object-contain"
-              />
+              {previewImage.url.toLowerCase().includes(".pdf") ? (
+                <div className="w-full h-[60vh] flex flex-col items-center justify-center gap-4">
+                  <p className="text-muted-foreground text-sm">This document is a PDF.</p>
+                  <Button onClick={() => window.open(previewImage.url, "_blank")}>
+                    Open PDF in New Tab
+                  </Button>
+                </div>
+              ) : (
+                <img
+                  src={previewImage.url}
+                  alt={previewImage.label}
+                  className="max-h-[70vh] w-full rounded-md object-contain"
+                />
+              )}
             </div>
           )}
         </DialogContent>
