@@ -79,6 +79,15 @@ const data = {
         { title: "Prices", url: "/bspd-prices", icon: IconCurrencyDollar },
       ],
     },
+    {
+      title: "Splicing",
+      icon: IconDatabase,
+      items: [
+        { title: "Records", url: "/splicing-records", icon: IconDatabase },
+        { title: "Invoices", url: "/splicing-invoices", icon: IconReceipt },
+        { title: "Prices", url: "/splicing-prices", icon: IconCurrencyDollar },
+      ],
+    },
   ],
 };
 
