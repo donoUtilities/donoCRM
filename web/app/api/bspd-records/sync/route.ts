@@ -132,6 +132,7 @@ export const POST = withAuth(async () => {
 
       const tickMarkStartPicture = getAppSheetFileUrl(tableName, row["Tick Mark Start Picture"] || "");
       const tickMarkEndPicture = getAppSheetFileUrl(tableName, row["Tick Mark End Picture"] || "");
+      const redLines = getAppSheetFileUrl(tableName, row["Red Lines"] || "");
       const workProcesPicture = getAppSheetFileUrl(tableName, row["Work Proces Picture"] || "");
       const additionalPicture = getAppSheetFileUrl(tableName, row["Additional Picture"] || "");
 
@@ -150,7 +151,7 @@ export const POST = withAuth(async () => {
               tickMarkStartPicture,
               tickMarkEnd,
               tickMarkEndPicture,
-              redLines: (row["Red Lines"] || "").toString().trim(),
+              redLines,
               workProcesPicture,
               additionalPicture,
               price,
