@@ -7,6 +7,8 @@ import {
   IconDatabase,
   IconX,
   IconRefresh,
+  IconChevronLeft,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -64,7 +66,14 @@ export function TreeTrimRecordsContent() {
     useUrlFilters({
       defaults: { team: "all", wireCenter: "all", bspdORdtap: "all" },
     });
-  const [previewImage, setPreviewImage] = React.useState<{ url: string; label: string } | null>(null);
+  const [previewGallery, setPreviewGallery] = React.useState<{ urls: string[]; label: string; initialIndex: number } | null>(null);
+  const [activeGalleryIndex, setActiveGalleryIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    if (previewGallery) {
+      setActiveGalleryIndex(previewGallery.initialIndex);
+    }
+  }, [previewGallery]);
 
   const fo = filterOptions;
 
@@ -187,8 +196,11 @@ export function TreeTrimRecordsContent() {
             return (
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); setPreviewImage({ url, label: col.label }); }}
-                className="block cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPreviewGallery({ urls: [url], label: col.label, initialIndex: 0 });
+                }}
+                className="block cursor-pointer border rounded overflow-hidden"
               >
                 <img
                   src={url}
@@ -202,28 +214,98 @@ export function TreeTrimRecordsContent() {
         }}
       />
 
-      {/* Image Preview Dialog */}
-      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
-        <DialogContent className="max-w-2xl p-2">
+      {/* Gallery / Carousel Preview Dialog */}
+      <Dialog open={!!previewGallery} onOpenChange={() => setPreviewGallery(null)}>
+        <DialogContent className="max-w-3xl p-4 flex flex-col items-center gap-4">
           <DialogTitle className="sr-only">
-            {previewImage?.label ?? "Image Preview"}
+            {previewGallery?.label ?? "Preview Gallery"}
           </DialogTitle>
-          {previewImage && (
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-sm font-medium">{previewImage.label}</p>
-              {previewImage.url.toLowerCase().includes(".pdf") ? (
-                <div className="w-full h-[60vh] flex flex-col items-center justify-center gap-4">
-                  <p className="text-muted-foreground text-sm">This document is a PDF.</p>
-                  <Button onClick={() => window.open(previewImage.url, "_blank")}>
-                    Open PDF in New Tab
-                  </Button>
+          
+          {previewGallery && previewGallery.urls.length > 0 && (
+            <div className="w-full flex flex-col items-center gap-4 relative">
+              {/* Header Info */}
+              <div className="flex items-center justify-between w-full border-b pb-2">
+                <span className="text-sm font-medium">{previewGallery.label}</span>
+                <span className="text-xs text-muted-foreground">
+                  {activeGalleryIndex + 1} of {previewGallery.urls.length}
+                </span>
+              </div>
+
+              {/* Main Content Area */}
+              <div className="w-full flex items-center justify-center min-h-[50vh] max-h-[70vh] bg-black/5 dark:bg-white/5 rounded-lg overflow-hidden relative group">
+                {/* Image or PDF Slide */}
+                {(() => {
+                  const url = previewGallery.urls[activeGalleryIndex];
+                  const isPdf = url.toLowerCase().includes(".pdf");
+
+                  if (isPdf) {
+                    return (
+                      <div className="flex flex-col items-center justify-center gap-4 p-8">
+                        <p className="text-muted-foreground text-sm font-medium">This document is a PDF.</p>
+                        <Button onClick={() => window.open(url, "_blank")} size="sm" className="bg-red-600 hover:bg-red-700">
+                          Open PDF in New Tab
+                        </Button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <img
+                      src={url}
+                      alt={`${previewGallery.label} Preview`}
+                      className="max-h-[65vh] w-full object-contain"
+                    />
+                  );
+                })()}
+
+                {/* Left/Right Navigation buttons (only if > 1 item) */}
+                {previewGallery.urls.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setActiveGalleryIndex(prev => (prev - 1 + previewGallery.urls.length) % previewGallery.urls.length)}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 size-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center cursor-pointer transition-colors"
+                    >
+                      <IconChevronLeft className="size-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveGalleryIndex(prev => (prev + 1) % previewGallery.urls.length)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 size-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center cursor-pointer transition-colors"
+                    >
+                      <IconChevronRight className="size-5" />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Thumbnail strip for quick navigation */}
+              {previewGallery.urls.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto max-w-full py-1">
+                  {previewGallery.urls.map((url, idx) => {
+                    const isPdf = url.toLowerCase().includes(".pdf");
+                    const isActive = idx === activeGalleryIndex;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActiveGalleryIndex(idx)}
+                        className={cn(
+                          "size-12 rounded border shrink-0 overflow-hidden cursor-pointer transition-all",
+                          isActive ? "ring-2 ring-primary border-transparent scale-105" : "opacity-60 hover:opacity-100"
+                        )}
+                      >
+                        {isPdf ? (
+                          <div className="h-full w-full flex items-center justify-center bg-red-100 text-red-700 text-[10px] font-bold">
+                            PDF
+                          </div>
+                        ) : (
+                          <img src={url} alt="thumbnail" className="h-full w-full object-cover" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-              ) : (
-                <img
-                  src={previewImage.url}
-                  alt={previewImage.label}
-                  className="max-h-[70vh] w-full rounded-md object-contain"
-                />
               )}
             </div>
           )}
