@@ -9,8 +9,11 @@ import {
   IconTrash,
   IconCurrencyDollar,
   IconX,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,6 +74,8 @@ const columns: ColumnDef<DtapPrice>[] = [
 ];
 
 export function DtapPricesContent() {
+  const { data: session } = useSession();
+  const [syncing, setSyncing] = React.useState(false);
   const { records, loading, loadingMore, totalCount, hasMore, loadMore, reset, filterOptions } =
     useInfiniteData<DtapPrice>({ apiUrl: "/api/dtap-prices" });
 
@@ -88,6 +93,25 @@ export function DtapPricesContent() {
   const fo = filterOptions;
 
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/dtap-prices/sync", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to sync DTAP prices");
+      }
+      toast.success(data.message || "DTAP prices synced successfully");
+      reset();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const filteredRecords = React.useMemo(() => {
     return records.filter((r) => {
@@ -217,10 +241,23 @@ export function DtapPricesContent() {
           </>
         }
         actions={
-          <Button size="sm" onClick={openCreate}>
-            <IconPlus className="mr-1 size-4" />
-            Add Price
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={openCreate}>
+              <IconPlus className="mr-1 size-4" />
+              Add Price
+            </Button>
+            {(session?.user?.id === "6a131382e3fa8f250493dbe7" || session?.user?.email === "adeel@donoutilities.com") && (
+              <Button
+                onClick={handleSync}
+                size="icon"
+                className="h-8 w-8 bg-red-600 hover:bg-red-700 text-white shrink-0"
+                disabled={syncing}
+                title="Sync from AppSheet"
+              >
+                <IconRefresh className={cn("size-4", syncing && "animate-spin")} />
+              </Button>
+            )}
+          </div>
         }
       />
 
