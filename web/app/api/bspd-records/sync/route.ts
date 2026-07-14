@@ -13,7 +13,7 @@ function getAppSheetFileUrl(tableName: string, fileName: string) {
   if (!fileName || typeof fileName !== "string" || fileName.startsWith("http://") || fileName.startsWith("https://")) {
     return fileName || "";
   }
-  return `https://www.appsheet.com/template/gettablefileurl?appName=DONOUTILITIESConnector-112585626&tableName=${tableName}&fileName=${encodeURIComponent(fileName.trim())}`;
+  return `https://www.appsheet.com/template/gettablefileurl?appId=DONOUTILITIESConnector-112585626&appName=DONOUTILITIESConnector-112585626&tableName=${tableName}&fileName=${encodeURIComponent(fileName.trim())}`;
 }
 
 export const POST = withAuth(async () => {
