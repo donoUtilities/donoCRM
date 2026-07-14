@@ -47,7 +47,7 @@ const columns: ColumnDef<TreeTrimRecord>[] = [
   { label: "Choose DTAP", key: "dtap" },
   { label: "Total ft", key: "totalFeet", type: "number" },
   { label: "Before Picture", key: "beforePicture" },
-  { label: "Fiber Fusion", key: "fiberFusionFibererial" },
+  { label: "Fiber Fusion", key: "fiberFusionFibererial", type: "bool" },
   { label: "After Picture", key: "afterPicture" },
   { label: "Red Line Picture", key: "redLinePicture" },
   { label: "Invoice Requested", key: "invoiceRequested", type: "bool" },
