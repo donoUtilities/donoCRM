@@ -6,7 +6,11 @@ import {
   IconSearch,
   IconCurrencyDollar,
   IconX,
+  IconRefresh,
 } from "@tabler/icons-react";
+import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,7 +51,9 @@ const columns: ColumnDef<BspdPrice>[] = [
 ];
 
 export function BspdPricesContent() {
-  const { records, loading, loadingMore, totalCount, hasMore, loadMore, filterOptions } =
+  const { data: session } = useSession();
+  const [syncing, setSyncing] = React.useState(false);
+  const { records, loading, loadingMore, totalCount, hasMore, loadMore, filterOptions, reset } =
     useInfiniteData<BspdPrice>({ apiUrl: "/api/bspd-prices" });
 
   const { filters, setFilter, searchQuery, setSearchQuery, clearFilters, hasActiveFilters } =
@@ -58,6 +64,25 @@ export function BspdPricesContent() {
   const fo = filterOptions;
 
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/bspd-prices/sync", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to sync BSPD prices");
+      }
+      toast.success(data.message || "BSPD prices synced successfully");
+      reset();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const filteredRecords = React.useMemo(() => {
     return records.filter((r) => {
@@ -101,6 +126,19 @@ export function BspdPricesContent() {
             <FilterSelect value={filters.uom} onValueChange={(v) => setFilter("uom", v)} placeholder="UOM" allLabel="All UOMs" options={fo.uoms || []} className="w-[130px]" />
 
           </>
+        }
+        actions={
+          (session?.user?.id === "6a131382e3fa8f250493dbe7" || session?.user?.email === "adeel@donoutilities.com") && (
+            <Button
+              onClick={handleSync}
+              size="icon"
+              className="h-8 w-8 bg-red-600 hover:bg-red-700 text-white shrink-0"
+              disabled={syncing}
+              title="Sync from AppSheet"
+            >
+              <IconRefresh className={cn("size-4", syncing && "animate-spin")} />
+            </Button>
+          )
         }
       />
 
