@@ -31,6 +31,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 interface DtapRecord {
   _id: string;
+  legacy_id?: string;
   dtapName: string;
   wireCenterName: string;
   teamName: string;
@@ -250,6 +251,7 @@ export function DtapRecordsContent() {
       if (debouncedSearch.trim()) {
         const q = debouncedSearch.toLowerCase();
         return (
+          (r.legacy_id || "").toLowerCase().includes(q) ||
           r.dtapName.toLowerCase().includes(q) ||
           r.wireCenterName.toLowerCase().includes(q) ||
           r.teamName.toLowerCase().includes(q) ||

@@ -78,6 +78,10 @@ export const POST = withAuth(async () => {
       if (name) {
         dtapNameToIdMap.set(name, d._id.toString());
       }
+      const legacyId = (d.legacy_id || "").toString().toLowerCase().trim();
+      if (legacyId) {
+        dtapNameToIdMap.set(legacyId, d._id.toString());
+      }
     }
 
     const teamNameToIdMap = new Map<string, string>();

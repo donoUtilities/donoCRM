@@ -149,6 +149,7 @@ export const GET = withAuth(async (request) => {
     // Serialize _id and clean up fields
     const serialized = data.map((r: Record<string, unknown>) => ({
       _id: String(r._id),
+      legacy_id: r.legacy_id || "",
       dtapName: r.dtapName || "",
       wireCenterName: r.wireCenterName || "",
       teamName: r.teamName || "",
