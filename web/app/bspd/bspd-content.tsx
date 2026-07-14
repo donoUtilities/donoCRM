@@ -10,7 +10,11 @@ import {
   IconPlus,
   IconUpload,
   IconDownload,
+  IconRefresh,
 } from "@tabler/icons-react";
+import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 import { FilterSelect } from "@/components/ui/filter-select";
 import { Button } from "@/components/ui/button";
@@ -47,7 +51,9 @@ const columns: ColumnDef<BspdItem>[] = [
 
 export function BspdContent() {
   const router = useRouter();
-  const { records, loading, loadingMore, totalCount, hasMore, loadMore, filterOptions } =
+  const { data: session } = useSession();
+  const [syncing, setSyncing] = React.useState(false);
+  const { records, loading, loadingMore, totalCount, hasMore, loadMore, filterOptions, reset } =
     useInfiniteData<BspdItem>({ apiUrl: "/api/bspd" });
 
   const { filters, setFilter, searchQuery, setSearchQuery, clearFilters, hasActiveFilters } =
@@ -58,6 +64,25 @@ export function BspdContent() {
   const fo = filterOptions;
 
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/bspd/sync", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to sync BSPD items");
+      }
+      toast.success(data.message || "BSPD items synced successfully");
+      reset();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const filteredRecords = React.useMemo(() => {
     return records.filter((r) => {
@@ -112,7 +137,7 @@ export function BspdContent() {
         }
         actions={
           <>
-            <Button size="sm">
+            <Button size="sm" onClick={() => router.push("/bspd/new")}>
               <IconPlus className="mr-1 size-4" />
               Add
             </Button>
@@ -122,6 +147,17 @@ export function BspdContent() {
             <Button variant="outline" size="icon" className="size-8" title="Export">
               <IconDownload className="size-4 text-red-500" />
             </Button>
+            {(session?.user?.id === "6a131382e3fa8f250493dbe7" || session?.user?.email === "adeel@donoutilities.com") && (
+              <Button
+                onClick={handleSync}
+                size="icon"
+                className="h-8 w-8 bg-red-600 hover:bg-red-700 text-white shrink-0"
+                disabled={syncing}
+                title="Sync from AppSheet"
+              >
+                <IconRefresh className={cn("size-4", syncing && "animate-spin")} />
+              </Button>
+            )}
           </>
         }
       />
